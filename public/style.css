@@ -1,0 +1,7 @@
+/* Sedikit styling untuk form agar lebih rapi */
+body { font-family: sans-serif; padding: 20px; }
+form { margin-bottom: 20px; border: 1px solid #ccc; padding: 15px; border-radius: 5px; }
+input, select, button { padding: 8px; margin-top: 5px; border-radius: 3px; border: 1px solid #ccc; }
+h2, h3 { border-bottom: 2px solid #0056b3; padding-bottom: 5px; color: #0056b3; }
+ul { list-style: none; padding: 0; }
+li { background: #f4f4f4; margin-bottom: 10px; padding: 10px; border-radius: 4px; }

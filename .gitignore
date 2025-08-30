@@ -1,0 +1,11 @@
+# Dependency yang diinstal
+node_modules/
+
+# File database
+*.db
+
+# File gambar
+*.PNG
+
+# File teks
+*.txt
