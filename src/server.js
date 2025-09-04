@@ -43,20 +43,36 @@ app.post('/api/anggota', (req, res) => {
   });
 });
 
-// Endpoint untuk mengambil semua anggota beserta saldonya
+// Endpoint untuk mengambil semua anggota beserta saldonya (dengan pagination)
 app.get('/api/anggota', (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const offset = parseInt(req.query.offset) || 0;
+
   const sql = `
     SELECT a.*, COALESCE(t.saldo, 0) AS saldo
     FROM anggota a
     LEFT JOIN tabungan t ON a.id = t.anggota_id
+    LIMIT ? OFFSET ?
   `;
-  db.all(sql, [], (err, rows) => {
+  db.all(sql, [limit, offset], (err, rows) => {
     if (err) {
       console.error(err.message);
       return res.status(500).json({ error: 'Gagal mengambil data anggota.' });
     }
     res.status(200).json(rows);
   });
+});
+
+// Endpoint baru untuk mendapatkan total jumlah anggota
+app.get('/api/anggota/count', (req, res) => {
+    const sql = `SELECT COUNT(*) AS count FROM anggota`;
+    db.get(sql, [], (err, row) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Gagal menghitung jumlah anggota.' });
+        }
+        res.status(200).json(row);
+    });
 });
 
 // Endpoint untuk transaksi
@@ -149,21 +165,61 @@ app.post('/api/pinjaman', (req, res) => {
     );
 });
 
-// Endpoint untuk mengambil daftar pinjaman berdasarkan ID anggota
+// Endpoint untuk mengambil daftar pinjaman berdasarkan ID anggota dan filter tanggal
 app.get('/api/pinjaman/:anggota_id', (req, res) => {
     const anggotaId = req.params.anggota_id;
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
 
-    const sql = `
+    let sql = `
         SELECT id, tanggal_pinjam, jumlah_pinjam, sisa_pinjam, status, keterangan
         FROM pinjaman
         WHERE anggota_id = ?
-        ORDER BY tanggal_pinjam DESC
     `;
-    
-    db.all(sql, [anggotaId], (err, rows) => {
+    let params = [anggotaId];
+
+    if (startDate && endDate) {
+        // Tambahkan waktu akhir hari ke endDate agar inklusif
+        const fullEndDate = endDate + 'T23:59:59.999Z';
+        sql += ` AND tanggal_pinjam BETWEEN ? AND ?`;
+        params.push(startDate, fullEndDate);
+    }
+    sql += ` ORDER BY tanggal_pinjam DESC`;
+
+    db.all(sql, params, (err, rows) => {
         if (err) {
             console.error(err.message);
             return res.status(500).json({ error: 'Gagal mengambil data pinjaman.' });
+        }
+        res.status(200).json(rows);
+    });
+});
+
+// Endpoint untuk mengambil daftar transaksi berdasarkan ID anggota dan filter tanggal
+app.get('/api/transaksi/:anggota_id', (req, res) => {
+    const anggotaId = req.params.anggota_id;
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    let sql = `
+        SELECT *
+        FROM transaksi
+        WHERE anggota_id = ?
+    `;
+    let params = [anggotaId];
+
+    if (startDate && endDate) {
+        // Tambahkan waktu akhir hari ke endDate agar inklusif
+        const fullEndDate = endDate + 'T23:59:59.999Z';
+        sql += ` AND tanggal BETWEEN ? AND ?`;
+        params.push(startDate, fullEndDate);
+    }
+    sql += ` ORDER BY tanggal DESC`;
+
+    db.all(sql, params, (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Gagal mengambil data transaksi.' });
         }
         res.status(200).json(rows);
     });

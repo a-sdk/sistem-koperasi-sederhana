@@ -10,6 +10,27 @@ const jumlahInput = document.getElementById('jumlah');
 const jumlahPinjamanInput = document.getElementById('jumlahPinjaman');
 const formPinjaman = document.getElementById('formPinjaman');
 const daftarRiwayatPinjaman = document.getElementById('daftarRiwayatPinjaman');
+const riwayatTransaksiList = document.getElementById('riwayatTransaksiList');
+
+const startDatePinjamanInput = document.getElementById('startDatePinjaman');
+const endDatePinjamanInput = document.getElementById('endDatePinjaman');
+const filterPinjamanBtn = document.getElementById('filterPinjamanBtn');
+
+const startDateTransaksiInput = document.getElementById('startDateTransaksi');
+const endDateTransaksiInput = document.getElementById('endDateTransaksi');
+const filterTransaksiBtn = document.getElementById('filterTransaksiBtn');
+
+const prevPageBtn = document.getElementById('prevPageBtn');
+const nextPageBtn = document.getElementById('nextPageBtn');
+const currentPageSpan = document.getElementById('currentPageSpan');
+
+// Variabel untuk menyimpan ID anggota yang sedang dicari
+let currentAnggotaId = null;
+
+// Variabel untuk pagination
+let currentPage = 1;
+const membersPerPage = 3;
+let totalMembers = 0;
 
 // Fungsi untuk memformat angka menjadi format mata uang
 jumlahInput.addEventListener('keyup', (event) => {
@@ -34,59 +55,74 @@ jenisTransaksiSelect.addEventListener('change', (event) => {
     }
 });
 
-// Fungsi untuk mengambil, menampilkan, dan menghapus daftar anggota beserta saldonya
+// Fungsi untuk mengambil, menampilkan, dan menghapus daftar anggota dengan pagination
 async function fetchAnggota() {
     try {
-        const response = await fetch('/api/anggota');
+        const offset = (currentPage - 1) * membersPerPage;
+        const countResponse = await fetch('/api/anggota/count');
+        const countData = await countResponse.json();
+        totalMembers = countData.count;
+
+        const response = await fetch(`/api/anggota?limit=${membersPerPage}&offset=${offset}`);
         const anggota = await response.json();
 
         daftarAnggota.innerHTML = '';
 
-        anggota.forEach(anggotaItem => {
-            const li = document.createElement('li');
-            li.textContent = `${anggotaItem.nama} (ID: ${anggotaItem.id})`;
+        if (anggota.length === 0) {
+            daftarAnggota.innerHTML = '<li>Tidak ada anggota.</li>';
+        } else {
+            anggota.forEach(anggotaItem => {
+                const li = document.createElement('li');
+                li.textContent = `${anggotaItem.nama} (ID: ${anggotaItem.id}) - Saldo: Rp. ${anggotaItem.saldo.toLocaleString('id-ID')}`;
 
-            // Buat tombol hapus
-            const deleteButton = document.createElement('button');
-            deleteButton.textContent = 'Hapus';
-            deleteButton.style.marginLeft = '10px';
-            
-            // Tambahkan event listener untuk tombol hapus
-            deleteButton.addEventListener('click', async () => {
-                // Tambahkan baris ini untuk pengujian
-                console.log('Tombol Hapus ditekan! Memulai proses...');
-                if (confirm(`Apakah Anda yakin ingin menghapus ${anggotaItem.nama}?`)) {
-                    try {
-                        const response = await fetch(`/api/anggota/${anggotaItem.id}`, {
-                            method: 'DELETE'
-                        });
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Hapus';
+                deleteButton.style.marginLeft = '10px';
+                
+                deleteButton.addEventListener('click', async () => {
+                    console.log('Tombol Hapus ditekan! Memulai proses...');
+                    if (confirm(`Apakah Anda yakin ingin menghapus ${anggotaItem.nama}?`)) {
+                        try {
+                            const response = await fetch(`/api/anggota/${anggotaItem.id}`, {
+                                method: 'DELETE'
+                            });
 
-                        const result = await response.json();
-                        if (response.ok) {
-                            alert(result.message);
-                            fetchAnggota();
-                        } else {
-                            alert(`Error: ${result.error}`);
+                            const result = await response.json();
+                            if (response.ok) {
+                                alert(result.message);
+                                fetchAnggota();
+                            } else {
+                                alert(`Error: ${result.error}`);
+                            }
+                        } catch (error) {
+                            console.error('Error:', error);
+                            alert('Terjadi kesalahan saat menghapus anggota.');
                         }
-                    } catch (error) {
-                        console.error('Error:', error);
-                        alert('Terjadi kesalahan saat menghapus anggota.');
                     }
-                }
-            });
+                });
 
-            li.appendChild(deleteButton);
-            daftarAnggota.appendChild(li);
-        });
+                li.appendChild(deleteButton);
+                daftarAnggota.appendChild(li);
+            });
+        }
+        
+        currentPageSpan.textContent = `Halaman ${currentPage} dari ${Math.ceil(totalMembers / membersPerPage)}`;
+        prevPageBtn.disabled = currentPage === 1;
+        nextPageBtn.disabled = currentPage * membersPerPage >= totalMembers;
+
     } catch (error) {
         console.error('Gagal mengambil data anggota:', error);
     }
 }
 
 // Fungsi untuk mengambil dan menampilkan riwayat pinjaman
-async function fetchRiwayatPinjaman(anggotaId) {
+async function fetchRiwayatPinjaman(anggotaId, startDate, endDate) {
     try {
-        const response = await fetch(`/api/pinjaman/${anggotaId}`);
+        let url = `/api/pinjaman/${anggotaId}`;
+        if (startDate && endDate) {
+            url += `?startDate=${startDate}&endDate=${endDate}`;
+        }
+        const response = await fetch(url);
         const pinjaman = await response.json();
 
         daftarRiwayatPinjaman.innerHTML = ''; // Bersihkan daftar sebelumnya
@@ -100,10 +136,11 @@ async function fetchRiwayatPinjaman(anggotaId) {
                 const li = document.createElement('li');
                 li.innerHTML = `
                     <strong>ID Pinjaman: ${pinjamanItem.id}</strong><br>
+                    Tanggal Pinjam: ${new Date(pinjamanItem.tanggal_pinjam).toLocaleString('id-ID')}<br>
                     Jumlah Pinjaman: Rp. ${pinjamanItem.jumlah_pinjam.toLocaleString('id-ID')}<br>
                     Sisa Pinjaman: Rp. ${pinjamanItem.sisa_pinjam.toLocaleString('id-ID')}<br>
                     Status: ${pinjamanItem.status}<br>
-                    Keterangan: ${pinjamanItem.keterangan}<br>
+                    Keterangan: ${pinjamanItem.keterangan || ''}<br>
                 `;
                 daftarRiwayatPinjaman.appendChild(li);
             });
@@ -113,10 +150,41 @@ async function fetchRiwayatPinjaman(anggotaId) {
     }
 }
 
+// Fungsi untuk mengambil dan menampilkan riwayat transaksi
+async function fetchRiwayatTransaksi(anggotaId, startDate, endDate) {
+    try {
+        let url = `/api/transaksi/${anggotaId}`;
+        if (startDate && endDate) {
+            url += `?startDate=${startDate}&endDate=${endDate}`;
+        }
+        const response = await fetch(url);
+        const transaksi = await response.json();
+        
+        riwayatTransaksiList.innerHTML = ''; // Bersihkan daftar sebelumnya
+
+        if (transaksi.length === 0) {
+            riwayatTransaksiList.innerHTML = '<li>Tidak ada riwayat transaksi.</li>';
+        } else {
+            transaksi.forEach(transaksiItem => {
+                const li = document.createElement('li');
+                const tanggalLokal = new Date(transaksiItem.tanggal).toLocaleString('id-ID');
+                li.innerHTML = `
+                    Tanggal: ${tanggalLokal}<br>
+                    Jenis: ${transaksiItem.jenis_transaksi} (${transaksiItem.jenis_simpanan || ''})<br>
+                    Jumlah: Rp. ${transaksiItem.jumlah.toLocaleString('id-ID')}<br>
+                    Keterangan: ${transaksiItem.keterangan || ''}
+                `;
+                riwayatTransaksiList.appendChild(li);
+            });
+        }
+    } catch (error) {
+        console.error('Gagal mengambil riwayat transaksi:', error);
+    }
+}
+
 // Event listener untuk form anggota 
 formAnggota.addEventListener('submit', async (event) => {
   event.preventDefault(); 
-  // Tambahkan baris ini untuk pengujian
   console.log('Tombol Simpan Anggota ditekan! Memulai proses...');
 
   const nama = document.getElementById('nama').value;
@@ -145,10 +213,23 @@ formAnggota.addEventListener('submit', async (event) => {
   }
 });
 
+// Event listener untuk pagination
+prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        fetchAnggota();
+    }
+});
+nextPageBtn.addEventListener('click', () => {
+    if (currentPage * membersPerPage < totalMembers) {
+        currentPage++;
+        fetchAnggota();
+    }
+});
+
 // Event listener untuk form pencarian anggota
 formCariAnggota.addEventListener('submit', async (event) => {
     event.preventDefault();
-    // Tambahkan baris ini untuk pengujian
     console.log('Tombol Cari ditekan! Memulai proses...');
     const cariNama = document.getElementById('cariNama').value;
 
@@ -158,6 +239,9 @@ formCariAnggota.addEventListener('submit', async (event) => {
 
         // Kosongkan daftar hasil pencarian sebelumnya
         daftarHasilPencarian.innerHTML = '';
+        daftarRiwayatPinjaman.innerHTML = '';
+        riwayatTransaksiList.innerHTML = '';
+        currentAnggotaId = null; // Reset ID anggota saat pencarian baru
 
         if (hasil.length === 0) {
             const li = document.createElement('li');
@@ -166,13 +250,15 @@ formCariAnggota.addEventListener('submit', async (event) => {
         } else {
             hasil.forEach(anggota => {
                 const li = document.createElement('li');
-                li.innerHTML = `${anggota.nama}
-                                  (ID: ${anggota.id})</strong><br>
-                                  <strong>Saldo: Rp. ${anggota.saldo.toLocaleString('id-ID')}</strong><br>
-                                  <strong>Pinjaman: Rp. ${anggota.total_pinjaman.toLocaleString('id-ID')}</strong><br>`;
+                li.innerHTML = `${anggota.nama} (ID: ${anggota.id}) - Saldo: Rp. ${anggota.saldo.toLocaleString('id-ID')} - Pinjaman: Rp. ${anggota.total_pinjaman.toLocaleString('id-ID')}`;
                 daftarHasilPencarian.appendChild(li);
-                // Panggil fungsi menampilkan riwayat pinjaman
+                
+                // Simpan ID anggota yang ditemukan ke variabel global
+                currentAnggotaId = anggota.id;
+
+                // Tampilkan riwayat secara default setelah pencarian berhasil
                 fetchRiwayatPinjaman(anggota.id);
+                fetchRiwayatTransaksi(anggota.id);
             });
         }
     } catch (error) {
@@ -180,6 +266,31 @@ formCariAnggota.addEventListener('submit', async (event) => {
         alert('Terjadi kesalahan saat mencari anggota.');
     }
 });
+
+// Event listener untuk tombol filter pinjaman
+filterPinjamanBtn.addEventListener('click', () => {
+    const startDate = startDatePinjamanInput.value;
+    const endDate = endDatePinjamanInput.value;
+    
+    if (currentAnggotaId) {
+        fetchRiwayatPinjaman(currentAnggotaId, startDate, endDate);
+    } else {
+        alert('Harap cari anggota terlebih dahulu.');
+    }
+});
+
+// Event listener untuk tombol filter transaksi
+filterTransaksiBtn.addEventListener('click', () => {
+    const startDate = startDateTransaksiInput.value;
+    const endDate = endDateTransaksiInput.value;
+    
+    if (currentAnggotaId) {
+        fetchRiwayatTransaksi(currentAnggotaId, startDate, endDate);
+    } else {
+        alert('Harap cari anggota terlebih dahulu.');
+    }
+});
+
 
 // Fungsi reset form transaksi
 function resetFormTransaksi() {
@@ -191,14 +302,12 @@ function resetFormTransaksi() {
 // Event listener untuk form transaksi
 formTransaksi.addEventListener('submit', async (event) => {
   event.preventDefault();
-  // Tambahkan baris ini untuk pengujian
   console.log('Tombol Catat Transaksi ditekan! Memulai proses...');
 
   const anggota_id = document.getElementById('anggotaId').value;
-  // Perbaikan di sini: Ambil nilai pinjaman_id saat tombol ditekan
   const pinjaman_id = document.getElementById('pinjamanId').value;
   const jenis_transaksi = jenisTransaksiSelect.value;
-  const jumlahValue = document.getElementById('jumlah').value.replace(/[^0-9]/g, ''); // Ambil nilai yang sudah diformat dan bersihkan
+  const jumlahValue = document.getElementById('jumlah').value.replace(/[^0-9]/g, '');
   const keterangan = document.getElementById('keterangan').value;
   let jenis_simpanan = null;
   
@@ -213,10 +322,10 @@ formTransaksi.addEventListener('submit', async (event) => {
 
   const newTransaction = {
       anggota_id,
-      pinjaman_id, // Masukkan pinjaman_id ke objek transaksi
+      pinjaman_id,
       jenis_transaksi,
       jenis_simpanan,
-      jumlah: parseInt(jumlahValue), // Kirim jumlah sebagai angka murni
+      jumlah: parseInt(jumlahValue),
       keterangan
   };
 
@@ -242,16 +351,14 @@ formTransaksi.addEventListener('submit', async (event) => {
 });
 
 // Event listener untuk form pinjaman
-// Event listener untuk form pinjaman
 formPinjaman.addEventListener('submit', async (event) => {
     event.preventDefault();
     console.log('Tombol Catat Pinjaman ditekan! Memulai proses...');
 
     const anggota_id = document.getElementById('pinjamanAnggotaId').value;
     const jumlahPinjamanValue = document.getElementById('jumlahPinjaman').value.replace(/[^0-9]/g, '');
-    const keterangan = document.getElementById('keteranganPinjaman').value;
-    
-    // Validasi input jumlah pinjaman
+    const keteranganPinjaman = document.getElementById('keteranganPinjaman').value;
+
     if (!jumlahPinjamanValue || isNaN(parseInt(jumlahPinjamanValue))) {
         alert('Jumlah pinjaman tidak valid. Harap masukkan angka.');
         return;
@@ -259,7 +366,7 @@ formPinjaman.addEventListener('submit', async (event) => {
     const newPinjaman = {
       anggota_id,
       jumlah: parseInt(jumlahPinjamanValue),
-      keterangan
+      keterangan: keteranganPinjaman
     };
 
     try {
@@ -280,5 +387,27 @@ formPinjaman.addEventListener('submit', async (event) => {
         alert('Terjadi kesalahan saat mencatat pinjaman.');
     }
 });
-// Jalankan saat halaman pertama kali dimuat
-document.addEventListener('DOMContentLoaded', fetchAnggota);
+
+// Fungsi untuk membuka tab
+function openTab(evt, tabName) {
+  var i, tabcontent, tablinks;
+  tabcontent = document.getElementsByClassName("tab");
+  for (i = 0; i < tabcontent.length; i++) {
+    tabcontent[i].style.display = "none";
+  }
+  tablinks = document.getElementsByClassName("tab-link");
+  for (i = 0; i < tablinks.length; i++) {
+    tablinks[i].className = tablinks[i].className.replace(" active", "");
+  }
+  document.getElementById(tabName).style.display = "block";
+  evt.currentTarget.className += " active";
+}
+
+// Set tab default saat halaman dimuat
+document.addEventListener('DOMContentLoaded', () => {
+    fetchAnggota();
+    const defaultTab = document.querySelector('.tab-link.active');
+    if (defaultTab) {
+        openTab({ currentTarget: defaultTab }, 'tabAnggota');
+    }
+});

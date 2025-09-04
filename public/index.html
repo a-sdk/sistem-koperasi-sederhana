@@ -3,67 +3,112 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sistem Koperasi Warga</title>
+  <title>Sistem Koperasi Rakyat</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <h1>Sistem Koperasi Warga</h1>
+  <h1>Sistem Koperasi Rakyat</h1>
 
-  <h2>Tambah Anggota Baru</h2>
-  <form id="formAnggota" autocomplete="off">
-    <label for="nama">Nama:</label><br>
-    <input type="text" id="nama" name="nama" required><br><br>
-    <label for="alamat">Alamat:</label><br>
-    <input type="text" id="alamat" name="alamat"><br><br>
-    <label for="telepon">Telepon:</label><br>
-    <input type="text" id="telepon" name="telepon"><br><br>
-    <button type="submit">Simpan Anggota</button>
-  </form>
-  
-  <hr>
+  <ul class="tab-nav">
+    <li><a href="#" class="tab-link active" onclick="openTab(event, 'tabAnggota')">Anggota & Pencarian</a></li>
+    <li><a href="#" class="tab-link" onclick="openTab(event, 'tabTransaksi')">Transaksi</a></li>
+    <li><a href="#" class="tab-link" onclick="openTab(event, 'tabPinjaman')">Pinjaman</a></li>
+  </ul>
 
-  <h2>Daftar Anggota</h2>
-  <ul id="daftarAnggota"></ul>
+  <div id="tabAnggota" class="tab active">
+    <h2>Tambah Anggota Baru</h2>
+    <form id="formAnggota" autocomplete="off">
+      <label for="nama">Nama:</label><br>
+      <input type="text" id="nama" name="nama" required><br><br>
+      <label for="alamat">Alamat:</label><br>
+      <input type="text" id="alamat" name="alamat"><br><br>
+      <label for="telepon">Telepon:</label><br>
+      <input type="text" id="telepon" name="telepon"><br><br>
+      <button type="submit">Simpan Anggota</button>
+    </form>
+    
+    <hr>
+    
+    <h2>Daftar Anggota</h2>
+    <ul id="daftarAnggota"></ul>
 
-  <hr>
+    <div class="pagination-controls">
+        <button id="prevPageBtn">Sebelumnya</button>
+        <span id="currentPageSpan">Halaman 1</span>
+        <button id="nextPageBtn">Berikutnya</button>
+    </div>
+    
+    <hr>
+    
+    <h2>Cari Anggota</h2>
+    <form id="formCariAnggota" autocomplete="off">
+      <label for="cariNama">Cari Nama Anggota:</label><br>
+      <input type="text" id="cariNama" name="cariNama" placeholder="Masukkan nama..." required><br><br>
+      <button type="submit">Cari</button>
+    </form>
+    
+    <h3>Hasil Pencarian</h3>
+    <ul id="daftarHasilPencarian"></ul>
 
-  <h2>Catat Transaksi</h2>
-  <form id="formTransaksi" autocomplete="off">
-    <label for="anggotaId">ID Anggota:</label><br>
-    <input type="number" id="anggotaId" name="anggotaId" required><br><br>
-    <label for="pinjamanId">ID Pinjaman (jika pembayaran):</label><br>
-    <input type="number" id="pinjamanId" name="pinjamanId"><br><br>
-    <label for="jenisTransaksi">Jenis Transaksi:</label><br>
-    <select id="jenisTransaksi" name="jenisTransaksi" required>
+    <h3>Riwayat Pinjaman Anggota</h3>
+    <div class="filter-controls">
+        <label for="startDatePinjaman">Mulai Tanggal:</label>
+        <input type="date" id="startDatePinjaman">
+        <label for="endDatePinjaman">Sampai Tanggal:</label>
+        <input type="date" id="endDatePinjaman">
+        <button id="filterPinjamanBtn">Filter</button>
+    </div>
+    <ul id="daftarRiwayatPinjaman"></ul>
+
+    <h3>Riwayat Transaksi Anggota</h3>
+    <div class="filter-controls">
+        <label for="startDateTransaksi">Mulai Tanggal:</label>
+        <input type="date" id="startDateTransaksi">
+        <label for="endDateTransaksi">Sampai Tanggal:</label>
+        <input type="date" id="endDateTransaksi">
+        <button id="filterTransaksiBtn">Filter</button>
+    </div>
+    <ul id="riwayatTransaksiList"></ul>
+  </div>
+
+  <div id="tabTransaksi" class="tab">
+    <h2>Catat Transaksi</h2>
+    <form id="formTransaksi" autocomplete="off">
+      <label for="anggotaId">ID Anggota:</label><br>
+      <input type="number" id="anggotaId" name="anggotaId" required><br><br>
+      <label for="pinjamanId">ID Pinjaman (jika pembayaran):</label><br>
+      <input type="number" id="pinjamanId" name="pinjamanId"><br><br>
+      <label for="jenisTransaksi">Jenis Transaksi:</label><br>
+      <select id="jenisTransaksi" name="jenisTransaksi" required>
         <option value="">Pilih...</option>
         <option value="setoran">Setoran</option>
         <option value="penarikan">Penarikan</option>
         <option value="pembayaran_pinjaman">Pembayaran Pinjaman</option>
-    </select><br><br>
+      </select><br><br>
 
-    <div id="jenisSimpananContainer" style="display:none;">
+      <div id="jenisSimpananContainer" style="display:none;">
         <label for="jenisSimpanan">Jenis Simpanan:</label><br>
         <select id="jenisSimpanan" name="jenisSimpanan">
-            <option value="pokok">Pokok</option>
-            <option value="wajib">Wajib</option>
-            <option value="sukarela">Sukarela</option>
+          <option value="pokok">Pokok</option>
+          <option value="wajib">Wajib</option>
+          <option value="sukarela">Sukarela</option>
         </select><br><br>
-    </div>
+      </div>
 
-    <label for="jumlah">Jumlah:</label><br>
-    <input type="text" id="jumlah" name="jumlah" required><br><br>
-    
-    <label for="keterangan">Keterangan:</label><br>
-    <input type="text" id="keterangan" name="keterangan"><br><br>
+      <label for="jumlah">Jumlah:</label><br>
+      <input type="text" id="jumlah" name="jumlah" required><br><br>
+      
+      <label for="keterangan">Keterangan:</label><br>
+      <input type="text" id="keterangan" name="keterangan"><br><br>
 
-    <button type="submit">Catat Transaksi</button>
-  </form>
+      <button type="submit">Catat Transaksi</button>
+    </form>
+  </div>
 
-  <hr>
-
-  <h2>Catat Pinjaman Baru</h2>
-  <form id="formPinjaman" autocomplete="off">
+  <div id="tabPinjaman" class="tab">
+    <h2>Catat Pinjaman Baru</h2>
+    <form id="formPinjaman" autocomplete="off">
       <label for="pinjamanAnggotaId">ID Anggota:</label><br>
       <input type="number" id="pinjamanAnggotaId" name="pinjamanAnggotaId" required><br><br>
       <label for="jumlahPinjaman">Jumlah:</label><br>
@@ -71,23 +116,9 @@
       <label for="keteranganPinjaman">Keterangan:</label><br>
       <input type="text" id="keteranganPinjaman" name="keteranganPinjaman"><br><br>
       <button type="submit">Catat Pinjaman</button>
-  </form>
-
-  <hr>
-
-  <h2>Cari Anggota</h2>
-  <form id="formCariAnggota" autocomplete="off">
-    <label for="cariNama">Cari Nama Anggota:</label><br>
-    <input type="text" id="cariNama" name="cariNama" placeholder="Masukkan nama..." required><br><br>
-    <button type="submit">Cari</button>
-  </form>
-  
-  <h3>Hasil Pencarian</h3>
-  <ul id="daftarHasilPencarian"></ul>
-
-  <h3>Riwayat Pinjaman Anggota</h3>
-  <ul id="daftarRiwayatPinjaman">
-    </ul>
+    </form>
+    <hr>
+  </div>
 
   <script src="script.js"></script>
 </body>
