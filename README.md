@@ -78,6 +78,15 @@ Buka browser Anda dan kunjungi alamat http://localhost:3000. Anda dapat mengguna
 
 ## Changelogs
 
+### Versi 1.2 - 03 September 2025
+* **Fitur Baru**:
+    * Memisahkan formulir anggota, transaksi, dan pinjaman pada tab berbeda.
+    * Menambahkan fungsi untuk melihat riwayat transaksi anggota.
+    * Menambhkan filter tanggal pada hasil pencarian riwayat transaksi dan riwayat pinjaman anggota.
+* **Perbaikan Bug**:
+    * Memperbaiki bug filter tanggal yang tidak akurat.
+    * Memperbaiki error 'Harap masukkan ID anggota'.
+
 ### Versi 1.1 - 30 Agustus 2025
 
 * **Fitur Baru**:
