@@ -24,12 +24,18 @@ const prevPageBtn = document.getElementById('prevPageBtn');
 const nextPageBtn = document.getElementById('nextPageBtn');
 const currentPageSpan = document.getElementById('currentPageSpan');
 
+const rekapStartDateInput = document.getElementById('rekapStartDate');
+const rekapEndDateInput = document.getElementById('rekapEndDate');
+const rekapBtn = document.getElementById('rekapBtn');
+const rekapTransaksiList = document.getElementById('rekapTransaksiList');
+const rekapPinjamanList = document.getElementById('rekapPinjamanList');
+
 // Variabel untuk menyimpan ID anggota yang sedang dicari
 let currentAnggotaId = null;
 
 // Variabel untuk pagination
 let currentPage = 1;
-const membersPerPage = 3;
+const membersPerPage = 10;
 let totalMembers = 0;
 
 // Fungsi untuk memformat angka menjadi format mata uang
@@ -73,7 +79,12 @@ async function fetchAnggota() {
         } else {
             anggota.forEach(anggotaItem => {
                 const li = document.createElement('li');
-                li.textContent = `${anggotaItem.nama} (ID: ${anggotaItem.id}) - Saldo: Rp. ${anggotaItem.saldo.toLocaleString('id-ID')}`;
+                const totalSaldo = (anggotaItem.saldo_pokok + anggotaItem.saldo_wajib + anggotaItem.saldo_sukarela).toLocaleString('id-ID');
+                li.innerHTML = `
+                    <strong>${anggotaItem.nama} (ID: ${anggotaItem.id})</strong><br>
+                    Total Saldo: Rp. ${totalSaldo}
+                    (Pokok: Rp. ${anggotaItem.saldo_pokok.toLocaleString('id-ID')}, Wajib: Rp. ${anggotaItem.saldo_wajib.toLocaleString('id-ID')}, Sukarela: Rp. ${anggotaItem.saldo_sukarela.toLocaleString('id-ID')})
+                `;
 
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = 'Hapus';
@@ -115,6 +126,20 @@ async function fetchAnggota() {
     }
 }
 
+// Event listener untuk pagination
+prevPageBtn.addEventListener('click', () => {
+    if (currentPage > 1) {
+        currentPage--;
+        fetchAnggota();
+    }
+});
+nextPageBtn.addEventListener('click', () => {
+    if (currentPage * membersPerPage < totalMembers) {
+        currentPage++;
+        fetchAnggota();
+    }
+});
+
 // Fungsi untuk mengambil dan menampilkan riwayat pinjaman
 async function fetchRiwayatPinjaman(anggotaId, startDate, endDate) {
     try {
@@ -125,7 +150,7 @@ async function fetchRiwayatPinjaman(anggotaId, startDate, endDate) {
         const response = await fetch(url);
         const pinjaman = await response.json();
 
-        daftarRiwayatPinjaman.innerHTML = ''; // Bersihkan daftar sebelumnya
+        daftarRiwayatPinjaman.innerHTML = '';
 
         if (pinjaman.length === 0) {
             const li = document.createElement('li');
@@ -160,7 +185,7 @@ async function fetchRiwayatTransaksi(anggotaId, startDate, endDate) {
         const response = await fetch(url);
         const transaksi = await response.json();
         
-        riwayatTransaksiList.innerHTML = ''; // Bersihkan daftar sebelumnya
+        riwayatTransaksiList.innerHTML = '';
 
         if (transaksi.length === 0) {
             riwayatTransaksiList.innerHTML = '<li>Tidak ada riwayat transaksi.</li>';
@@ -179,6 +204,49 @@ async function fetchRiwayatTransaksi(anggotaId, startDate, endDate) {
         }
     } catch (error) {
         console.error('Gagal mengambil riwayat transaksi:', error);
+    }
+}
+
+// Fungsi untuk mengambil dan menampilkan rekapitulasi data
+async function fetchRekapData(startDate, endDate) {
+    try {
+        // Fetch rekapitulasi transaksi
+        let urlTransaksi = `/api/rekap/transaksi?startDate=${startDate}&endDate=${endDate}`;
+        const responseTransaksi = await fetch(urlTransaksi);
+        const rekapTransaksi = await responseTransaksi.json();
+        if (startDate && endDate) {
+    
+            rekapTransaksiList.innerHTML = '';
+            rekapTransaksi.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `${item.jenis_transaksi} (${item.jenis_simpanan || 'N/A'}): Rp. ${item.total.toLocaleString('id-ID')}`;
+                rekapTransaksiList.appendChild(li);
+            });
+        }
+        if (rekapTransaksi.length === 0) {
+            rekapTransaksiList.innerHTML = '<li>Tidak ada data rekap transaksi.</li>'
+        }
+
+        // Fetch rekapitulasi pinjaman
+        let urlPinjaman = `/api/rekap/pinjaman?startDate=${startDate}&endDate=${endDate}`;
+        const responsePinjaman = await fetch(urlPinjaman);
+        const rekapPinjaman = await responsePinjaman.json();
+        if (startDate && endDate) {
+            
+            rekapPinjamanList.innerHTML = '';
+            rekapPinjaman.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = `Status ${item.status}: Total Pinjaman Rp. ${item.total_pinjam.toLocaleString('id-ID')} (Sisa: Rp. ${item.total_sisa.toLocaleString('id-ID')})`;
+                rekapPinjamanList.appendChild(li);
+            });
+        }
+        if (rekapPinjaman.length === 0) {
+            rekapPinjamanList.innerHTML = '<li>Tidak ada data rekap pinjaman.</li>'
+        }
+
+    } catch (error) {
+        console.error('Gagal mengambil data rekapitulasi:', error);
+        alert('Terjadi kesalahan saat mengambil rekapitulasi data.', error);
     }
 }
 
@@ -213,20 +281,6 @@ formAnggota.addEventListener('submit', async (event) => {
   }
 });
 
-// Event listener untuk pagination
-prevPageBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-        currentPage--;
-        fetchAnggota();
-    }
-});
-nextPageBtn.addEventListener('click', () => {
-    if (currentPage * membersPerPage < totalMembers) {
-        currentPage++;
-        fetchAnggota();
-    }
-});
-
 // Event listener untuk form pencarian anggota
 formCariAnggota.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -237,11 +291,10 @@ formCariAnggota.addEventListener('submit', async (event) => {
         const response = await fetch(`/api/anggota/cari?nama=${cariNama}`);
         const hasil = await response.json();
 
-        // Kosongkan daftar hasil pencarian sebelumnya
         daftarHasilPencarian.innerHTML = '';
         daftarRiwayatPinjaman.innerHTML = '';
         riwayatTransaksiList.innerHTML = '';
-        currentAnggotaId = null; // Reset ID anggota saat pencarian baru
+        currentAnggotaId = null;
 
         if (hasil.length === 0) {
             const li = document.createElement('li');
@@ -250,13 +303,16 @@ formCariAnggota.addEventListener('submit', async (event) => {
         } else {
             hasil.forEach(anggota => {
                 const li = document.createElement('li');
-                li.innerHTML = `${anggota.nama} (ID: ${anggota.id}) - Saldo: Rp. ${anggota.saldo.toLocaleString('id-ID')} - Pinjaman: Rp. ${anggota.total_pinjaman.toLocaleString('id-ID')}`;
+                li.innerHTML = `
+                    <strong>${anggota.nama} (ID: ${anggota.id})</strong><br>
+                    Total Saldo: Rp. ${(anggota.saldo_pokok + anggota.saldo_wajib + anggota.saldo_sukarela).toLocaleString('id-ID')}
+                    (Pokok: Rp. ${anggota.saldo_pokok.toLocaleString('id-ID')}, Wajib: Rp. ${anggota.saldo_wajib.toLocaleString('id-ID')}, Sukarela: Rp. ${anggota.saldo_sukarela.toLocaleString('id-ID')})<br>
+                    Total Pinjaman: Rp. ${anggota.total_pinjaman.toLocaleString('id-ID')}
+                `;
                 daftarHasilPencarian.appendChild(li);
                 
-                // Simpan ID anggota yang ditemukan ke variabel global
                 currentAnggotaId = anggota.id;
 
-                // Tampilkan riwayat secara default setelah pencarian berhasil
                 fetchRiwayatPinjaman(anggota.id);
                 fetchRiwayatTransaksi(anggota.id);
             });
@@ -387,6 +443,16 @@ formPinjaman.addEventListener('submit', async (event) => {
         alert('Terjadi kesalahan saat mencatat pinjaman.');
     }
 });
+
+// Event listener untuk tombol Rekapitulasi
+rekapBtn.addEventListener('click', () => {
+    const startDate = rekapStartDateInput.value;
+    const endDate = rekapEndDateInput.value;
+
+    // Panggil fungsi rekap yang sudah ada
+    fetchRekapData(startDate, endDate);
+});
+
 
 // Fungsi untuk membuka tab
 function openTab(evt, tabName) {

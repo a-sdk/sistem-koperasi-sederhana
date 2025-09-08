@@ -11,12 +11,13 @@
   <h1>Sistem Koperasi Rakyat</h1>
 
   <ul class="tab-nav">
-    <li><a href="#" class="tab-link active" onclick="openTab(event, 'tabAnggota')">Anggota & Pencarian</a></li>
+    <li><a href="#" class="tab-link active" onclick="openTab(event, 'tabAnggota')">Anggota</a></li>
     <li><a href="#" class="tab-link" onclick="openTab(event, 'tabTransaksi')">Transaksi</a></li>
-    <li><a href="#" class="tab-link" onclick="openTab(event, 'tabPinjaman')">Pinjaman</a></li>
+    <li><a href="#" class="tab-link" onclick="openTab(event, 'tabCariAnggota')">Cari & Riwayat</a></li>
+    <li><a href="#" class="tab-link" onclick="openTab(event, 'tabRekapitulasi')">Rekapitulasi</a></li>
   </ul>
 
-  <div id="tabAnggota" class="tab active">
+  <div id="tabAnggota" class="tab">
     <h2>Tambah Anggota Baru</h2>
     <form id="formAnggota" autocomplete="off">
       <label for="nama">Nama:</label><br>
@@ -32,67 +33,36 @@
     
     <h2>Daftar Anggota</h2>
     <ul id="daftarAnggota"></ul>
-
-    <div class="pagination-controls">
-        <button id="prevPageBtn">Sebelumnya</button>
-        <span id="currentPageSpan">Halaman 1</span>
-        <button id="nextPageBtn">Berikutnya</button>
-    </div>
     
-    <hr>
-    
-    <h2>Cari Anggota</h2>
-    <form id="formCariAnggota" autocomplete="off">
-      <label for="cariNama">Cari Nama Anggota:</label><br>
-      <input type="text" id="cariNama" name="cariNama" placeholder="Masukkan nama..." required><br><br>
-      <button type="submit">Cari</button>
-    </form>
-    
-    <h3>Hasil Pencarian</h3>
-    <ul id="daftarHasilPencarian"></ul>
-
-    <h3>Riwayat Pinjaman Anggota</h3>
-    <div class="filter-controls">
-        <label for="startDatePinjaman">Mulai Tanggal:</label>
-        <input type="date" id="startDatePinjaman">
-        <label for="endDatePinjaman">Sampai Tanggal:</label>
-        <input type="date" id="endDatePinjaman">
-        <button id="filterPinjamanBtn">Filter</button>
+    <div class="pagination">
+      <button id="prevPageBtn">Sebelumnya</button>
+      <span id="currentPageSpan">Halaman 1 dari 1</span>
+      <button id="nextPageBtn">Selanjutnya</button>
     </div>
-    <ul id="daftarRiwayatPinjaman"></ul>
-
-    <h3>Riwayat Transaksi Anggota</h3>
-    <div class="filter-controls">
-        <label for="startDateTransaksi">Mulai Tanggal:</label>
-        <input type="date" id="startDateTransaksi">
-        <label for="endDateTransaksi">Sampai Tanggal:</label>
-        <input type="date" id="endDateTransaksi">
-        <button id="filterTransaksiBtn">Filter</button>
-    </div>
-    <ul id="riwayatTransaksiList"></ul>
   </div>
 
-  <div id="tabTransaksi" class="tab">
+  <div id="tabTransaksi" class="tab" style="display:none;">
     <h2>Catat Transaksi</h2>
     <form id="formTransaksi" autocomplete="off">
       <label for="anggotaId">ID Anggota:</label><br>
       <input type="number" id="anggotaId" name="anggotaId" required><br><br>
       <label for="pinjamanId">ID Pinjaman (jika pembayaran):</label><br>
       <input type="number" id="pinjamanId" name="pinjamanId"><br><br>
+
       <label for="jenisTransaksi">Jenis Transaksi:</label><br>
       <select id="jenisTransaksi" name="jenisTransaksi" required>
-        <option value="">Pilih...</option>
+        <option value="">-- Pilih Jenis --</option>
         <option value="setoran">Setoran</option>
         <option value="penarikan">Penarikan</option>
         <option value="pembayaran_pinjaman">Pembayaran Pinjaman</option>
       </select><br><br>
-
-      <div id="jenisSimpananContainer" style="display:none;">
+      
+      <div id="jenisSimpananContainer" style="display: none;">
         <label for="jenisSimpanan">Jenis Simpanan:</label><br>
         <select id="jenisSimpanan" name="jenisSimpanan">
-          <option value="pokok">Pokok</option>
-          <option value="wajib">Wajib</option>
-          <option value="sukarela">Sukarela</option>
+            <option value="pokok">Pokok</option>
+            <option value="wajib">Wajib</option>
+            <option value="sukarela">Sukarela</option>
         </select><br><br>
       </div>
 
@@ -104,20 +74,80 @@
 
       <button type="submit">Catat Transaksi</button>
     </form>
-  </div>
 
-  <div id="tabPinjaman" class="tab">
+    <hr>
+
     <h2>Catat Pinjaman Baru</h2>
     <form id="formPinjaman" autocomplete="off">
-      <label for="pinjamanAnggotaId">ID Anggota:</label><br>
-      <input type="number" id="pinjamanAnggotaId" name="pinjamanAnggotaId" required><br><br>
-      <label for="jumlahPinjaman">Jumlah:</label><br>
-      <input type="text" id="jumlahPinjaman" name="jumlahPinjaman" required><br><br>
-      <label for="keteranganPinjaman">Keterangan:</label><br>
-      <input type="text" id="keteranganPinjaman" name="keteranganPinjaman"><br><br>
-      <button type="submit">Catat Pinjaman</button>
+        <label for="pinjamanAnggotaId">ID Anggota:</label><br>
+        <input type="number" id="pinjamanAnggotaId" name="pinjamanAnggotaId" required><br><br>
+        <label for="jumlahPinjaman">Jumlah:</label><br>
+        <input type="text" id="jumlahPinjaman" name="jumlahPinjaman" required><br><br>
+        <label for="keteranganPinjaman">Keterangan:</label><br>
+        <input type="text" id="keteranganPinjaman" name="keteranganPinjaman"><br><br>
+        <button type="submit">Catat Pinjaman</button>
     </form>
+  </div>
+
+  <div id="tabCariAnggota" class="tab" style="display:none;">
+    <h2>Cari Anggota</h2>
+    <form id="formCariAnggota" autocomplete="off">
+      <label for="cariNama">Cari Nama Anggota:</label><br>
+      <input type="text" id="cariNama" name="cariNama" required><br><br>
+      <button type="submit">Cari</button>
+    </form>
+    
     <hr>
+
+    <h3>Hasil Pencarian</h3>
+    <ul id="daftarHasilPencarian"></ul>
+
+    <hr>
+    
+    <h3>Filter Riwayat</h3>
+    <div class="filter-controls">
+      <label for="startDateTransaksi">Dari Tanggal:</label>
+      <input type="date" id="startDateTransaksi">
+      <label for="endDateTransaksi">Sampai Tanggal:</label>
+      <input type="date" id="endDateTransaksi">
+      <button id="filterTransaksiBtn">Filter Transaksi</button>
+    </div>
+    
+    <br>
+    
+    <div class="filter-controls">
+      <label for="startDatePinjaman">Dari Tanggal:</label>
+      <input type="date" id="startDatePinjaman">
+      <label for="endDatePinjaman">Sampai Tanggal:</label>
+      <input type="date" id="endDatePinjaman">
+      <button id="filterPinjamanBtn">Filter Pinjaman</button>
+    </div>
+
+    <hr>
+
+    <h3>Riwayat Transaksi Anggota</h3>
+    <ul id="riwayatTransaksiList"></ul>
+
+    <h3>Riwayat Pinjaman Anggota</h3>
+    <ul id="daftarRiwayatPinjaman"></ul>
+  </div>
+  
+  <div id="tabRekapitulasi" class="tab">
+    <h3>Rekapitulasi Data</h3>
+    <div class="filter-controls">
+        <label for="rekapStartDate">Dari Tanggal:</label>
+        <input type="date" id="rekapStartDate">
+        <label for="rekapEndDate">Sampai Tanggal:</label>
+        <input type="date" id="rekapEndDate">
+        <button id="rekapBtn">Tampilkan Rekap</button>
+    </div>
+
+    <div id="rekapitulasiResult">
+        <h4>Rekap Transaksi</h4>
+        <ul id="rekapTransaksiList"></ul>
+        <h4>Rekap Pinjaman</h4>
+        <ul id="rekapPinjamanList"></ul>
+    </div>
   </div>
 
   <script src="script.js"></script>

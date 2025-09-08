@@ -26,10 +26,12 @@ function createTables() {
     `);
 
     // Tabel untuk data tabungan anggota
+    // KITA GANTI TABEL LAMA DENGAN TABEL BARU INI
     db.run(`
       CREATE TABLE IF NOT EXISTS tabungan (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         anggota_id INTEGER,
+        jenis_simpanan TEXT NOT NULL,
         saldo REAL NOT NULL DEFAULT 0,
         FOREIGN KEY (anggota_id) REFERENCES anggota(id)
       )
@@ -54,16 +56,16 @@ function createTables() {
       CREATE TABLE IF NOT EXISTS transaksi (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         anggota_id INTEGER,
-        pinjaman_id INTEGER,
         tanggal TEXT NOT NULL,
-        jenis_transaksi TEXT NOT NULL,  -- 'setoran' atau 'penarikan'
-        jenis_simpanan TEXT,            -- 'pokok', 'wajib', 'sukarela'
+        jenis_transaksi TEXT NOT NULL,
+        jenis_simpanan TEXT,
         jumlah REAL NOT NULL,
         keterangan TEXT,
+        pinjaman_id INTEGER,
         FOREIGN KEY (anggota_id) REFERENCES anggota(id)
       )
     `);
-    
+
     console.log('Tabel berhasil dibuat atau sudah ada.');
   });
 }

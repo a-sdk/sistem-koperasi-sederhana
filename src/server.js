@@ -1,12 +1,9 @@
 const express = require('express');
 const path = require('path');
-const db = require('./database'); // Impor koneksi database dari file yang kita buat
+const db = require('./database');
 
 const app = express();
 const PORT = 3000;
-
-// Middleware untuk menyajikan file statis dari folder 'public'
-app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Middleware untuk mem-parsing body request dalam format JSON
 app.use(express.json());
@@ -18,9 +15,7 @@ app.post('/api/anggota', (req, res) => {
     return res.status(400).json({ error: 'Nama anggota wajib diisi.' });
   }
 
-  // Gunakan serialize untuk menjalankan dua perintah secara berurutan
   db.serialize(() => {
-    // 1. Masukkan data ke tabel anggota
     const sqlAnggota = 'INSERT INTO anggota (nama, alamat, telepon) VALUES (?, ?, ?)';
     db.run(sqlAnggota, [nama, alamat, telepon], function(err) {
       if (err) {
@@ -29,15 +24,21 @@ app.post('/api/anggota', (req, res) => {
       }
 
       const newAnggotaId = this.lastID;
+      const simpananTypes = ['pokok', 'wajib', 'sukarela'];
+      let completedInserts = 0;
 
-      // 2. Buat entri di tabel tabungan untuk anggota baru
-      const sqlTabungan = 'INSERT INTO tabungan (anggota_id, saldo) VALUES (?, 0)';
-      db.run(sqlTabungan, [newAnggotaId], function(err) {
-        if (err) {
-          console.error(err.message);
-          return res.status(500).json({ error: 'Gagal membuat akun tabungan.' });
-        }
-        res.status(201).json({ id: newAnggotaId, message: 'Anggota dan akun tabungan berhasil ditambahkan.' });
+      simpananTypes.forEach(type => {
+        const sqlTabungan = 'INSERT INTO tabungan (anggota_id, jenis_simpanan, saldo) VALUES (?, ?, 0)';
+        db.run(sqlTabungan, [newAnggotaId, type], (err) => {
+          if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Gagal membuat akun tabungan.' });
+          }
+          completedInserts++;
+          if (completedInserts === simpananTypes.length) {
+            res.status(201).json({ id: newAnggotaId, message: 'Anggota dan akun tabungan berhasil ditambahkan.' });
+          }
+        });
       });
     });
   });
@@ -49,9 +50,16 @@ app.get('/api/anggota', (req, res) => {
   const offset = parseInt(req.query.offset) || 0;
 
   const sql = `
-    SELECT a.*, COALESCE(t.saldo, 0) AS saldo
+    SELECT a.id, a.nama, a.alamat, a.telepon,
+           COALESCE(t_pokok.saldo, 0) AS saldo_pokok,
+           COALESCE(t_wajib.saldo, 0) AS saldo_wajib,
+           COALESCE(t_sukarela.saldo, 0) AS saldo_sukarela,
+           COALESCE(SUM(t_pokok.saldo + t_wajib.saldo + t_sukarela.saldo), 0) AS total_saldo
     FROM anggota a
-    LEFT JOIN tabungan t ON a.id = t.anggota_id
+    LEFT JOIN tabungan t_pokok ON a.id = t_pokok.anggota_id AND t_pokok.jenis_simpanan = 'pokok'
+    LEFT JOIN tabungan t_wajib ON a.id = t_wajib.anggota_id AND t_wajib.jenis_simpanan = 'wajib'
+    LEFT JOIN tabungan t_sukarela ON a.id = t_sukarela.anggota_id AND t_sukarela.jenis_simpanan = 'sukarela'
+    GROUP BY a.id
     LIMIT ? OFFSET ?
   `;
   db.all(sql, [limit, offset], (err, rows) => {
@@ -80,30 +88,25 @@ app.post('/api/transaksi', (req, res) => {
   const { anggota_id, jenis_transaksi, jenis_simpanan, jumlah, keterangan, pinjaman_id } = req.body;
   const tanggal = new Date().toISOString();
 
-  // Validasi dasar
   if (!anggota_id || !jenis_transaksi || !jumlah) {
     return res.status(400).json({ error: 'Data transaksi tidak lengkap.' });
   }
-  // Validasi tambahan: Pastikan jumlah adalah angka yang valid
   if (isNaN(jumlah)) {
       return res.status(400).json({ error: 'Jumlah harus berupa angka.' });
   }
 
-  // Gunakan database serialize untuk memastikan semua perintah berjalan berurutan
   db.serialize(() => {
-    // 1. Tambahkan data transaksi ke tabel 'transaksi'
     const sqlTransaksi = `
-      INSERT INTO transaksi (anggota_id, tanggal, jenis_transaksi, jenis_simpanan, jumlah, keterangan, pinjaman_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO transaksi (anggota_id, tanggal, jenis_transaksi, jenis_simpanan, jumlah, keterangan)
+      VALUES (?, ?, ?, ?, ?, ?)
     `;
-    db.run(sqlTransaksi, [anggota_id, tanggal, jenis_transaksi, jenis_simpanan, jumlah, keterangan, pinjaman_id], function(err) {
+    db.run(sqlTransaksi, [anggota_id, tanggal, jenis_transaksi, jenis_simpanan, jumlah, keterangan], function(err) {
       if (err) {
         console.error('KESALAHAN SAAT MENAMBAHKAN TRANSAKSI:');
         console.error(err);
         return res.status(500).json({ error: 'Gagal mencatat transaksi.' });
       }
 
-      // 2. Perbarui sisa pinjaman jika jenis transaksi adalah pembayaran pinjaman
       if (jenis_transaksi === 'pembayaran_pinjaman') {
         if (!pinjaman_id) {
           return res.status(400).json({ error: 'ID pinjaman harus disertakan.' });
@@ -121,15 +124,18 @@ app.post('/api/transaksi', (req, res) => {
         );
       }
       
-      // 3. Hanya perbarui saldo di tabel 'tabungan' jika jenis transaksi adalah 'setoran' atau 'penarikan'
-      if (jenis_transaksi === 'setoran' || jenis_transaksi === 'penarikan') {
-          let sqlSaldo;
-          if (jenis_transaksi === 'setoran') {
-              sqlSaldo = `UPDATE tabungan SET saldo = saldo + ? WHERE anggota_id = ?`;
-          } else if (jenis_transaksi === 'penarikan') {
-              sqlSaldo = `UPDATE tabungan SET saldo = saldo - ? WHERE anggota_id = ?`;
-          }
-
+      // Update saldo berdasarkan jenis simpanan
+      if (jenis_transaksi === 'setoran') {
+          const sqlSaldo = `UPDATE tabungan SET saldo = saldo + ? WHERE anggota_id = ? AND jenis_simpanan = ?`;
+          db.run(sqlSaldo, [jumlah, anggota_id, jenis_simpanan], function(err) {
+              if (err) {
+                  console.error('KESALAHAN SAAT MEMPERBARUI SALDO:');
+                  console.error(err);
+                  return res.status(500).json({ error: 'Gagal memperbarui saldo.' });
+              }
+          });
+      } else if (jenis_transaksi === 'penarikan') {
+          const sqlSaldo = `UPDATE tabungan SET saldo = saldo - ? WHERE anggota_id = ? AND jenis_simpanan = 'sukarela'`;
           db.run(sqlSaldo, [jumlah, anggota_id], function(err) {
               if (err) {
                   console.error('KESALAHAN SAAT MEMPERBARUI SALDO:');
@@ -165,28 +171,18 @@ app.post('/api/pinjaman', (req, res) => {
     );
 });
 
-// Endpoint untuk mengambil daftar pinjaman berdasarkan ID anggota dan filter tanggal
+// Endpoint untuk mengambil daftar pinjaman berdasarkan ID anggota
 app.get('/api/pinjaman/:anggota_id', (req, res) => {
     const anggotaId = req.params.anggota_id;
-    const startDate = req.query.startDate;
-    const endDate = req.query.endDate;
 
-    let sql = `
+    const sql = `
         SELECT id, tanggal_pinjam, jumlah_pinjam, sisa_pinjam, status, keterangan
         FROM pinjaman
         WHERE anggota_id = ?
+        ORDER BY tanggal_pinjam DESC
     `;
-    let params = [anggotaId];
-
-    if (startDate && endDate) {
-        // Tambahkan waktu akhir hari ke endDate agar inklusif
-        const fullEndDate = endDate + 'T23:59:59.999Z';
-        sql += ` AND tanggal_pinjam BETWEEN ? AND ?`;
-        params.push(startDate, fullEndDate);
-    }
-    sql += ` ORDER BY tanggal_pinjam DESC`;
-
-    db.all(sql, params, (err, rows) => {
+    
+    db.all(sql, [anggotaId], (err, rows) => {
         if (err) {
             console.error(err.message);
             return res.status(500).json({ error: 'Gagal mengambil data pinjaman.' });
@@ -195,26 +191,17 @@ app.get('/api/pinjaman/:anggota_id', (req, res) => {
     });
 });
 
-// Endpoint untuk mengambil daftar transaksi berdasarkan ID anggota dan filter tanggal
+// Endpoint untuk mengambil daftar transaksi berdasarkan ID anggota
 app.get('/api/transaksi/:anggota_id', (req, res) => {
     const anggotaId = req.params.anggota_id;
-    const startDate = req.query.startDate;
-    const endDate = req.query.endDate;
 
-    let sql = `
+    const sql = `
         SELECT *
         FROM transaksi
         WHERE anggota_id = ?
+        ORDER BY tanggal DESC
     `;
     let params = [anggotaId];
-
-    if (startDate && endDate) {
-        // Tambahkan waktu akhir hari ke endDate agar inklusif
-        const fullEndDate = endDate + 'T23:59:59.999Z';
-        sql += ` AND tanggal BETWEEN ? AND ?`;
-        params.push(startDate, fullEndDate);
-    }
-    sql += ` ORDER BY tanggal DESC`;
 
     db.all(sql, params, (err, rows) => {
         if (err) {
@@ -229,30 +216,25 @@ app.get('/api/transaksi/:anggota_id', (req, res) => {
 app.delete('/api/anggota/:id', (req, res) => {
     const anggotaId = req.params.id;
 
-    // Gunakan serialize untuk memastikan penghapusan berurutan
     db.serialize(() => {
-        // Hapus semua transaksi terkait terlebih dahulu untuk menghindari kesalahan foreign key
         db.run('DELETE FROM transaksi WHERE anggota_id = ?', [anggotaId], (err) => {
             if (err) {
                 console.error(err.message);
                 return res.status(500).json({ error: 'Gagal menghapus transaksi terkait.' });
             }
 
-            // Hapus saldo anggota
             db.run('DELETE FROM tabungan WHERE anggota_id = ?', [anggotaId], (err) => {
                 if (err) {
                     console.error(err.message);
                     return res.status(500).json({ error: 'Gagal menghapus saldo anggota.' });
                 }
 
-                // Hapus semua pinjaman terkait
                 db.run('DELETE FROM pinjaman WHERE anggota_id = ?', [anggotaId], (err) => {
                     if (err) {
                         console.error(err.message);
                         return res.status(500).json({ error: 'Gagal menghapus pinjaman terkait.' });
                     }
 
-                    // Hapus anggota
                     db.run('DELETE FROM anggota WHERE id = ?', [anggotaId], function(err) {
                         if (err) {
                             console.error(err.message);
@@ -276,12 +258,19 @@ app.get('/api/anggota/cari', (req, res) => {
         return res.status(400).json({ error: 'Nama anggota wajib diisi untuk pencarian.' });
     }
     const sql = `
-        SELECT a.id, a.nama, COALESCE(t.saldo, 0) AS saldo, SUM(COALESCE(p.sisa_pinjam, 0)) AS total_pinjaman
+        SELECT a.id, a.nama, a.alamat, a.telepon,
+           COALESCE(t_pokok.saldo, 0) AS saldo_pokok,
+           COALESCE(t_wajib.saldo, 0) AS saldo_wajib,
+           COALESCE(t_sukarela.saldo, 0) AS saldo_sukarela,
+           COALESCE(SUM(t_pokok.saldo + t_wajib.saldo + t_sukarela.saldo), 0) AS total_saldo,
+           SUM(COALESCE(p.sisa_pinjam, 0)) AS total_pinjaman
         FROM anggota a
-        LEFT JOIN tabungan t ON a.id = t.anggota_id
+        LEFT JOIN tabungan t_pokok ON a.id = t_pokok.anggota_id AND t_pokok.jenis_simpanan = 'pokok'
+        LEFT JOIN tabungan t_wajib ON a.id = t_wajib.anggota_id AND t_wajib.jenis_simpanan = 'wajib'
+        LEFT JOIN tabungan t_sukarela ON a.id = t_sukarela.anggota_id AND t_sukarela.jenis_simpanan = 'sukarela'
         LEFT JOIN pinjaman p ON a.id = p.anggota_id AND p.status = 'belum_lunas'
         WHERE a.nama LIKE ?
-        GROUP BY a.id, a.nama
+        GROUP BY a.id
         LIMIT 10
     `;
     const searchTerm = `%${namaAnggota}%`;
@@ -294,10 +283,127 @@ app.get('/api/anggota/cari', (req, res) => {
     });
 });
 
+// Endpoint untuk mengambil riwayat pinjaman dengan filter tanggal
+app.get('/api/pinjaman/:anggota_id', (req, res) => {
+    const anggotaId = req.params.anggota_id;
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    let sql = `
+        SELECT id, tanggal_pinjam, jumlah_pinjam, sisa_pinjam, status, keterangan
+        FROM pinjaman
+        WHERE anggota_id = ?
+    `;
+    let params = [anggotaId];
+
+    if (startDate && endDate) {
+        const fullEndDate = endDate + 'T23:59:59.999Z';
+        sql += ` AND tanggal_pinjam BETWEEN ? AND ?`;
+        params.push(startDate, fullEndDate);
+    }
+    sql += ` ORDER BY tanggal_pinjam DESC`;
+
+    db.all(sql, params, (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Gagal mengambil data pinjaman.' });
+        }
+        res.status(200).json(rows);
+    });
+});
+
+// Endpoint untuk mengambil riwayat transaksi dengan filter tanggal
+app.get('/api/transaksi/:anggota_id', (req, res) => {
+    const anggotaId = req.params.anggota_id;
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    let sql = `
+        SELECT *
+        FROM transaksi
+        WHERE anggota_id = ?
+    `;
+    let params = [anggotaId];
+
+    if (startDate && endDate) {
+        const fullEndDate = endDate + 'T23:59:59.999Z';
+        sql += ` AND tanggal BETWEEN ? AND ?`;
+        params.push(startDate, fullEndDate);
+    }
+    sql += ` ORDER BY tanggal DESC`;
+
+    db.all(sql, params, (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Gagal mengambil data transaksi.' });
+        }
+        res.status(200).json(rows);
+    });
+});
+
+// Endpoint untuk rekapitulasi transaksi
+app.get('/api/rekap/transaksi', (req, res) => {
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    let sql = `
+        SELECT jenis_transaksi, jenis_simpanan, SUM(jumlah) AS total
+        FROM transaksi
+    `;
+    let params = [];
+
+    if (startDate && endDate) {
+        const fullEndDate = endDate + 'T23:59:59.999Z';
+        sql += ` WHERE tanggal BETWEEN ? AND ?`;
+        params.push(startDate, fullEndDate);
+    }
+    
+    sql += ` GROUP BY jenis_transaksi, jenis_simpanan`;
+
+    db.all(sql, params, (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Gagal mengambil rekapitulasi transaksi.' });
+        }
+        res.status(200).json(rows);
+    });
+});
+
+// Endpoint untuk rekapitulasi pinjaman
+app.get('/api/rekap/pinjaman', (req, res) => {
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    let sql = `
+        SELECT status, SUM(jumlah_pinjam) AS total_pinjam, SUM(sisa_pinjam) AS total_sisa
+        FROM pinjaman
+    `;
+    let params = [];
+
+    if (startDate && endDate) {
+        const fullEndDate = endDate + 'T23:59:59.999Z';
+        sql += ` WHERE tanggal_pinjam BETWEEN ? AND ?`;
+        params.push(startDate, fullEndDate);
+    }
+
+    sql += ` GROUP BY status`;
+    
+    db.all(sql, params, (err, rows) => {
+        if (err) {
+            console.error(err.message);
+            return res.status(500).json({ error: 'Gagal mengambil rekapitulasi pinjaman.' });
+        }
+        res.status(200).json(rows);
+    });
+});
+
 // Contoh endpoint API sederhana untuk pengujian
 app.get('/api/test', (req, res) => {
   res.status(200).json({ message: 'Server berhasil berjalan!' });
 });
+
+// Middleware untuk menyajikan file statis dari folder 'public'
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Mulai server
 app.listen(PORT, () => {
