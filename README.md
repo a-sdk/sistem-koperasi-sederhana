@@ -78,6 +78,15 @@ Buka browser Anda dan kunjungi alamat http://localhost:3000. Anda dapat mengguna
 
 ## Changelogs
 
+### Versi 1.3 - 08 September 2025
+* **Fitur Baru**:
+    * Memngkategorikan ulang tab anggota, riwayat dan pencarian, serta transaksi.
+    * Menambahkan tab untuk menampilkan rekapitulasi.
+    * Menambhkan fungsi untuk menampilkan rekapitulasi transaksi pada rentang waktu tertentu.
+    * Memisahkan saldo sesuai kategori (pokok, wajib, sukarela).
+* **Perbaikan Bug**:
+    * Memperbaiki bug API tidak dapat diakses.
+
 ### Versi 1.2 - 03 September 2025
 * **Fitur Baru**:
     * Memisahkan formulir anggota, transaksi, dan pinjaman pada tab berbeda.
